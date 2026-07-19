@@ -11,7 +11,7 @@ export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.E
   const host = useIsHost()
   const [gameStart, setGameStart] = useMultiplayerState('gameStart', false)
   const roomCode = getRoomCode()
-  const joinUrl = roomCode ? `${window.location.origin}/?room=${roomCode}` : null
+  const joinUrl = roomCode ? `${window.location.origin}/#r=${roomCode}` : null
   const stored = getStoredProfile()
   const [name, setName] = useState<string>(stored?.name ?? '')
   const myName = me?.getState('name') as string | undefined
