@@ -6,6 +6,16 @@ import { World, TILE, type Entity, type Intent } from '../core'
 import { serializeWorld, applySnapshot, encodeIntent, decodeIntent, type SnapEntity } from '../net/playroomAdapter'
 import { createInputState, type InputState } from './input'
 import MobileControls from '../components/MobileControls'
+import {
+  KENNEY_TEXTURES,
+  KENNEY_TINT,
+  kenneyTextureFor,
+  primTextureFor,
+  createPrimitiveTextures,
+  DISPLAY,
+} from './textures'
+
+const PALETTE = [0x4ea3ff, 0xff8a5b, 0x9b6bff, 0x5bd1a0, 0xffd24e, 0xff6b9d]
 
 const WORLD_W = 64
 const WORLD_H = 48
@@ -75,15 +85,69 @@ interface SceneData {
   players?: React.MutableRefObject<PlayerState[]>
 }
 
+/** A player avatar: a simple circle (moomoo-style) with a hand + tool that
+ *  rotates to follow the aim direction. Code-drawn so it never depends on art. */
+class PlayerView {
+  container: Phaser.GameObjects.Container
+  private body: Phaser.GameObjects.Arc
+  private hand: Phaser.GameObjects.Container
+  private hp: Phaser.GameObjects.Graphics
+  private lastHp = Infinity
+
+  constructor(scene: Phaser.Scene, color: number) {
+    const shadow = scene.add.ellipse(0, 10, 26, 12, 0x000000, 0.15)
+    const body = scene.add.circle(0, 0, 10, color)
+    body.setStrokeStyle(3, 0xffffff, 0.9)
+    const tool = scene.add.rectangle(9, 0, 16, 5, 0xd8d8e0).setStrokeStyle(2, 0x6b6b6b)
+    const handDot = scene.add.circle(2, 0, 4, 0xffe0bd)
+    const hand = scene.add.container(0, 0, [tool, handDot])
+    const hp = scene.add.graphics()
+    this.container = scene.add.container(0, 0, [shadow, body, hand, hp])
+    this.body = body
+    this.hand = hand
+    this.hp = hp
+  }
+
+  update(e: Entity, scene: Phaser.Scene): void {
+    this.container.setPosition(e.pos.x, e.pos.y)
+    this.container.setDepth(e.pos.y)
+    const f = e.facing ?? { x: 0, y: 1 }
+    this.hand.setRotation(Math.atan2(f.y, f.x))
+
+    const frac = Phaser.Math.Clamp(e.hp / e.maxHp, 0, 1)
+    this.hp.clear()
+    this.hp.lineStyle(3, 0x222222, 0.4)
+    this.hp.beginPath()
+    this.hp.arc(0, 0, 15, 0, Math.PI * 2)
+    this.hp.strokePath()
+    this.hp.lineStyle(3, frac > 0.3 ? 0x6be36b : 0xff5b5b, 1)
+    this.hp.beginPath()
+    this.hp.arc(0, 0, 15, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2)
+    this.hp.strokePath()
+
+    if (e.hp < this.lastHp - 0.01) {
+      scene.tweens.add({ targets: this.body, scale: { from: 1.3, to: 1 }, duration: 120 })
+    }
+    this.lastHp = e.hp
+  }
+
+  destroy(): void {
+    this.container.destroy()
+  }
+}
+
 class WorldScene extends Phaser.Scene {
   private world!: World
   private playerId = 'hero'
   private mode: 'local' | 'net' = 'local'
   private inputRef!: React.MutableRefObject<InputState>
   private playersRef?: React.MutableRefObject<PlayerState[]>
-  private gfx!: Phaser.GameObjects.Graphics
   private hud!: Phaser.GameObjects.Text
   private keys!: Record<string, Phaser.Input.Keyboard.Key>
+  private terrainGfx!: Phaser.GameObjects.Graphics
+  private sprites = new Map<string, Phaser.GameObjects.Image>()
+  private players = new Map<string, PlayerView>()
+  private lastHp = new Map<string, number>()
   private acc = 0
   private snapAcc = 0
   private targets = new Map<string, { x: number; y: number }>()
@@ -99,6 +163,16 @@ class WorldScene extends Phaser.Scene {
     this.playersRef = data.players
   }
 
+  preload(): void {
+    for (const t of KENNEY_TEXTURES) {
+      try {
+        this.load.image(t.key, t.path)
+      } catch {
+        /* fall back to primitive textures */
+      }
+    }
+  }
+
   create(): void {
     this.world = new World({ width: WORLD_W, height: WORLD_H, seed: WORLD_SEED })
     if (this.mode === 'local') {
@@ -110,14 +184,55 @@ class WorldScene extends Phaser.Scene {
     }
     // (net clients rebuild entities from snapshots; terrain already matches via seed)
 
+    createPrimitiveTextures(this)
+
     this.cameras.main.setBackgroundColor(COLORS.ground)
-    this.gfx = this.add.graphics()
+    this.terrainGfx = this.add.graphics().setDepth(-1000)
+    this.bakeTerrain()
+
     this.hud = this.add
       .text(12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '16px', color: '#fff7e6' })
       .setScrollFactor(0)
       .setDepth(1000)
     const kb = this.input.keyboard!
     this.keys = kb.addKeys('W,A,S,D,SPACE,F') as Record<string, Phaser.Input.Keyboard.Key>
+  }
+
+  /** Draw the static ground/walls once into a retained Graphics object. */
+  private bakeTerrain(): void {
+    const g = this.terrainGfx
+    g.clear()
+    for (let y = 0; y < this.world.height; y++) {
+      for (let x = 0; x < this.world.width; x++) {
+        if (this.world.tileAt(x, y) === 1) {
+          const wall = x === 0 || y === 0 || x === this.world.width - 1 || y === this.world.height - 1
+          g.fillStyle(wall ? COLORS.wall : COLORS.solid, 1)
+          g.fillRect(x * TILE, y * TILE, TILE, TILE)
+        }
+      }
+    }
+  }
+
+  private colorFor(id: string): number {
+    let h = 0
+    for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0
+    return PALETTE[h % PALETTE.length]
+  }
+
+  private ensureSprite(e: Entity): Phaser.GameObjects.Image {
+    let s = this.sprites.get(e.id)
+    if (s) return s
+    const k = kenneyTextureFor(e)
+    const key = k && this.textures.exists(k) ? k : primTextureFor(e)
+    s = this.add.image(e.pos.x, e.pos.y, key)
+    if (k && KENNEY_TINT[k] !== undefined) s.setTint(KENNEY_TINT[k])
+    else if (e.kind === 'item') s.setTint(ITEM_COLORS[e.worldItem?.item ?? ''] ?? COLORS.item)
+    const d = DISPLAY[e.kind] ?? DISPLAY.item
+    const scale = d.h ? d.h / s.height : (d.w ?? 20) / s.width
+    s.setScale(scale)
+    s.setOrigin(0.5, d.originY)
+    this.sprites.set(e.id, s)
+    return s
   }
 
   /** Host only: keep a player entity in sync with the live players list. */
@@ -222,64 +337,47 @@ class WorldScene extends Phaser.Scene {
   }
 
   private draw(): void {
-    const g = this.gfx
-    g.clear()
-    for (let y = 0; y < this.world.height; y++) {
-      for (let x = 0; x < this.world.width; x++) {
-        if (this.world.tileAt(x, y) === 1) {
-          const wall = x === 0 || y === 0 || x === this.world.width - 1 || y === this.world.height - 1
-          g.fillStyle(wall ? COLORS.wall : COLORS.solid, 1)
-          g.fillRect(x * TILE, y * TILE, TILE, TILE)
-        }
+    // Drop views whose entity is gone.
+    for (const [id, s] of this.sprites) {
+      if (!this.world.entities.has(id)) {
+        s.destroy()
+        this.sprites.delete(id)
+        this.lastHp.delete(id)
       }
     }
-    for (const e of this.world.entities.values()) {
-      const { x, y } = e.pos
-      switch (e.kind) {
-        case 'tree':
-          g.fillStyle(COLORS.trunk, 1)
-          g.fillRect(x - 4, y, 8, e.radius)
-          g.fillStyle(COLORS.leaf, 1)
-          g.fillCircle(x, y - 4, e.radius)
-          break
-        case 'rock':
-          g.fillStyle(COLORS.rock, 1)
-          g.fillCircle(x, y, e.radius)
-          break
-        case 'berry':
-          g.fillStyle(COLORS.bush, 1)
-          g.fillCircle(x, y, e.radius)
-          g.fillStyle(COLORS.berry, 1)
-          g.fillCircle(x - 5, y - 3, 3)
-          g.fillCircle(x + 4, y + 2, 3)
-          g.fillCircle(x + 1, y + 6, 3)
-          break
-        case 'animal':
-          g.fillStyle(e.tier === 'boar' ? COLORS.boar : COLORS.rabbit, 1)
-          g.fillCircle(x, y, e.radius)
-          break
-        case 'item':
-          g.fillStyle(ITEM_COLORS[e.worldItem?.item ?? ''] ?? COLORS.item, 1)
-          g.fillRect(x - 6, y - 6, 12, 12)
-          break
-        case 'player': {
-          g.fillStyle(0x000000, 0.15)
-          g.fillEllipse(x, y + e.radius - 2, e.radius * 1.6, e.radius * 0.7)
-          g.fillStyle(COLORS.player, 1)
-          g.fillCircle(x, y, e.radius)
-          const f = e.facing ?? { x: 0, y: 1 }
-          g.lineStyle(4, COLORS.facing, 1)
-          g.beginPath()
-          g.moveTo(x, y)
-          g.lineTo(x + f.x * (e.radius + 8), y + f.y * (e.radius + 8))
-          g.strokePath()
-          g.lineStyle(3, 0xff5555, 1)
-          g.beginPath()
-          g.arc(x, y, e.radius + 6, -Math.PI / 2, -Math.PI / 2 + (e.hp / e.maxHp) * Math.PI * 2)
-          g.strokePath()
-          break
-        }
+    for (const [id, pv] of this.players) {
+      if (!this.world.entities.has(id)) {
+        pv.destroy()
+        this.players.delete(id)
       }
+    }
+
+    for (const e of this.world.entities.values()) {
+      if (e.kind === 'player') {
+        let pv = this.players.get(e.id)
+        if (!pv) {
+          pv = new PlayerView(this, this.colorFor(e.id))
+          this.players.set(e.id, pv)
+        }
+        pv.update(e, this)
+        continue
+      }
+      const s = this.ensureSprite(e)
+      s.setPosition(e.pos.x, e.pos.y)
+      s.setDepth(e.pos.y)
+      const d = DISPLAY[e.kind]
+      if (d?.flipByFacing) s.setFlipX((e.facing?.x ?? 0) < 0)
+      const prev = this.lastHp.get(e.id) ?? e.hp
+      if (e.hp < prev - 0.01) {
+        this.tweens.add({
+          targets: s,
+          scaleX: s.scaleX * 1.18,
+          scaleY: s.scaleY * 1.18,
+          duration: 90,
+          yoyo: true,
+        })
+      }
+      this.lastHp.set(e.id, e.hp)
     }
     this.drawHud()
   }

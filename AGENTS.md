@@ -23,7 +23,7 @@
 - **Phase 5: COMPLETE** ✅ — Phaser world render (tiles, entities, camera follow) + WASD/mouse controls + HUD. Cute placeholder art (Kenney packs land later).
 - **Phase 6: COMPLETE** ✅ — Universal on-screen controls (`MobileControls.tsx`): left virtual joystick + right action/eat buttons. Pointer-based, works for touch AND mouse.
 - **Phase 7: COMPLETE** ✅ — Multiplayer netcode: host-authoritative `World` steps with all players' intents; snapshot broadcast via `setState('snapshot')`; clients send intents via `myPlayer().setState('intent')` and interpolate the mirror `World` from snapshots (terrain matches via shared seed). Codec in `src/net/playroomAdapter.ts`; scene net-mode in `src/client/game.tsx` (`GameNet`). 2-context Playwright e2e + codec unit tests.
-- **Phase 8: NEXT** 🔜 — Polish + deploy to Vercel (`vercel --prod`). Kenney art pass; recipe/structure expansion.
+- **Phase 8: IN PROGRESS** 🔜 — Kenney static-sprite art pass. Packs added by user (extracted to `public/kenney/`): `animal-pack-remastered`, `foliage-sprites` (Flat white silhouettes, tinted), `tiny-farm`, `tiny-town`, `ui-pack`, `ui-pack-adventure`. `src/client/textures.ts` maps entity kinds → Kenney keys with code-drawn primitive fallbacks (`createPrimitiveTextures`). `WorldScene` now bakes terrain once and renders entities via a sprite pool; players are moomoo-style circles with a hand/tool that rotates to follow `facing` (aim). Remaining: building/structures, gold-as-score, weapon ages, HUD Kenney icons.
 
 ---
 
