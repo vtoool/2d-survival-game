@@ -300,9 +300,17 @@ class WorldScene extends Phaser.Scene {
     move.y = Phaser.Math.Clamp(move.y, -1, 1)
 
     const pointer = this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
-    const aim = inp.aimActive
-      ? { x: player.pos.x + inp.aimX * 100, y: player.pos.y + inp.aimY * 100 }
-      : { x: pointer.x, y: pointer.y }
+    // On touch devices the RIGHT joystick is the ONLY thing that controls where
+    // the character looks. Left joystick / action / eat buttons must NOT change
+    // the facing, so when the aim stick is idle we leave aim=null (facing holds).
+    // On desktop the mouse still aims freely.
+    const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+    let aim: { x: number; y: number } | null = null
+    if (inp.aimActive) {
+      aim = { x: player.pos.x + inp.aimX * 100, y: player.pos.y + inp.aimY * 100 }
+    } else if (!isTouch) {
+      aim = { x: pointer.x, y: pointer.y }
+    }
 
     let action: Intent['action'] = null
     if (this.keys.F.isDown || inp.eatHeld) action = 'eat'
@@ -470,7 +478,7 @@ export function GameLocal(): React.JSX.Element {
     return () => game.destroy(true)
   }, [])
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
       <div ref={ref} style={{ width: '100%', height: '100%' }} />
       <MobileControls input={input} />
     </div>
@@ -500,7 +508,7 @@ export function GameNet(): React.JSX.Element {
     return () => game.destroy(true)
   }, [playerId])
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
       <div ref={ref} style={{ width: '100%', height: '100%' }} />
       <MobileControls input={input} />
     </div>

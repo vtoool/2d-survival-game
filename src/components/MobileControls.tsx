@@ -65,8 +65,8 @@ function Joystick({
         width: radius * 2,
         height: radius * 2,
         borderRadius: '50%',
-        background: 'rgba(255,247,230,0.18)',
-        border: '3px solid rgba(255,247,230,0.4)',
+        background: 'rgba(255,247,230,0.30)',
+        border: '3px solid rgba(255,247,230,0.65)',
         touchAction: 'none',
         ...style,
       }}
@@ -96,7 +96,7 @@ export default function MobileControls({ input }: { input: React.MutableRefObjec
       {/* Left: movement joystick */}
       <Joystick
         radius={JOY_RADIUS}
-        style={{ left: 24, bottom: 24 }}
+        style={{ left: 24, bottom: 96 }}
         onChange={(x, y, a) => {
           input.current.moveX = x
           input.current.moveY = y
@@ -107,7 +107,7 @@ export default function MobileControls({ input }: { input: React.MutableRefObjec
       {/* Right: aim joystick */}
       <Joystick
         radius={AIM_RADIUS}
-        style={{ right: 150, bottom: 30 }}
+        style={{ right: 120, bottom: 96 }}
         onChange={(x, y, a) => {
           input.current.aimX = x
           input.current.aimY = y
@@ -115,13 +115,13 @@ export default function MobileControls({ input }: { input: React.MutableRefObjec
         }}
       />
 
-      {/* Right: action buttons */}
-      <div style={{ position: 'absolute', right: 24, bottom: 30, display: 'flex', gap: 14, alignItems: 'center' }}>
+      {/* Right: action buttons (stacked above the aim joystick) */}
+      <div style={{ position: 'absolute', right: 24, bottom: 210, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
         <button
           onPointerDown={() => (input.current.eatHeld = true)}
           onPointerUp={() => (input.current.eatHeld = false)}
           onPointerCancel={() => (input.current.eatHeld = false)}
-          style={btn('#e85b6b')}
+          style={{ ...btn('#e85b6b'), width: 60, height: 60, fontSize: 26 }}
         >
           🍓
         </button>
@@ -129,7 +129,7 @@ export default function MobileControls({ input }: { input: React.MutableRefObjec
           onPointerDown={() => (input.current.actionHeld = true)}
           onPointerUp={() => (input.current.actionHeld = false)}
           onPointerCancel={() => (input.current.actionHeld = false)}
-          style={{ ...btn('#ffb43b'), width: 84, height: 84, fontSize: 34 }}
+          style={{ ...btn('#ffb43b'), width: 76, height: 76, fontSize: 32 }}
         >
           ⚔
         </button>
