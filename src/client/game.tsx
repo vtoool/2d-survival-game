@@ -146,6 +146,7 @@ class WorldScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>
   private terrainGfx!: Phaser.GameObjects.Graphics
   private sprites = new Map<string, Phaser.GameObjects.Image>()
+  private berryOverlays = new Map<string, Phaser.GameObjects.Image>()
   private players = new Map<string, PlayerView>()
   private lastHp = new Map<string, number>()
   private acc = 0
@@ -345,6 +346,12 @@ class WorldScene extends Phaser.Scene {
         this.lastHp.delete(id)
       }
     }
+    for (const [id, o] of this.berryOverlays) {
+      if (!this.world.entities.has(id)) {
+        o.destroy()
+        this.berryOverlays.delete(id)
+      }
+    }
     for (const [id, pv] of this.players) {
       if (!this.world.entities.has(id)) {
         pv.destroy()
@@ -378,6 +385,19 @@ class WorldScene extends Phaser.Scene {
         })
       }
       this.lastHp.set(e.id, e.hp)
+
+      if (e.kind === 'berry') {
+        let o = this.berryOverlays.get(e.id)
+        if (!o) {
+          o = this.add.image(e.pos.x, e.pos.y, 'berry_dots')
+          const bd = DISPLAY.berry
+          o.setScale(bd.h ? bd.h / o.height : 1)
+          o.setOrigin(0.5, bd.originY)
+          this.berryOverlays.set(e.id, o)
+        }
+        o.setPosition(e.pos.x, e.pos.y)
+        o.setDepth(e.pos.y + 0.5)
+      }
     }
     this.drawHud()
   }

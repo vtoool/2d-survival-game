@@ -130,4 +130,14 @@ export function createPrimitiveTextures(scene: Phaser.Scene): void {
     g.fillStyle(0xffffff, 1)
     g.fillCircle(7, 7, 6)
   })
+  make('berry_dots', 30, 26, (g) => {
+    g.fillStyle(0xe85b6b, 1)
+    g.fillCircle(9, 10, 3)
+    g.fillCircle(20, 13, 3)
+    g.fillCircle(14, 19, 3)
+    g.fillStyle(0xff8a98, 1)
+    g.fillCircle(9, 9, 1.2)
+    g.fillCircle(20, 12, 1.2)
+    g.fillCircle(14, 18, 1.2)
+  })
 }

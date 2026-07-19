@@ -1,5 +1,6 @@
 import { useState, useEffect, type ChangeEvent } from 'react'
-import { usePlayersList, myPlayer, useMultiplayerState, useIsHost, type PlayerState } from 'playroomkit'
+import { usePlayersList, myPlayer, useMultiplayerState, useIsHost, getRoomCode, type PlayerState } from 'playroomkit'
+import { QRCodeSVG } from 'qrcode.react'
 import { getStoredProfile, setStoredProfile, clearStoredProfile } from '../utils/playerStorage'
 
 // Universal lobby (Host/Join, never Desktop/Mobile). Assumes the Network Gate in
@@ -9,6 +10,8 @@ export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.E
   const me = myPlayer()
   const host = useIsHost()
   const [gameStart, setGameStart] = useMultiplayerState('gameStart', false)
+  const roomCode = getRoomCode()
+  const joinUrl = roomCode ? `${window.location.origin}/?room=${roomCode}` : null
   const stored = getStoredProfile()
   const [name, setName] = useState<string>(stored?.name ?? '')
   const myName = me?.getState('name') as string | undefined
@@ -81,6 +84,15 @@ export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.E
             </div>
           ))}
         </div>
+        {joinUrl && (
+          <div className="flex flex-col items-center mb-4">
+            <div className="bg-white p-2 rounded-xl shadow-lg">
+              <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor="#1f2933" />
+            </div>
+            <p className="text-xs opacity-70 mt-2">scan to join this world</p>
+            <p className="font-mono text-sm tracking-widest">{roomCode}</p>
+          </div>
+        )}
         <button className="btn-ghost w-full mb-2" onClick={toggleReady}>
           {isReady ? 'CANCEL READY' : 'READY'}
         </button>
