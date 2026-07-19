@@ -1,0 +1,72 @@
+/* Cute theme + global mobile-first resets. Tailwind v4 with @theme tokens. */
+@import 'tailwindcss';
+
+@theme {
+  --color-meadow: #7cc36b;
+  --color-forest: #2f6b3a;
+  --color-wood: #b5793b;
+  --color-cream: #fff7e6;
+  --color-sky: #8fd3ff;
+  --color-berry: #e85b6b;
+  --font-display: 'Baloo 2', 'Trebuchet MS', sans-serif;
+  --font-ui: 'Nunito', 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--color-meadow);
+  font-family: var(--font-ui);
+  color: var(--color-cream);
+  /* Mobile-first: kill scroll/zoom/selection during play. */
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn-primary {
+  background: var(--color-berry);
+  color: #fff;
+  font-weight: 800;
+  border-radius: 14px;
+  padding: 0.75rem 1.25rem;
+  box-shadow: 0 4px 0 #b03b49;
+  transition: transform 0.05s ease;
+}
+.btn-primary:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #b03b49;
+}
+
+.btn-ghost {
+  background: rgba(255, 247, 230, 0.15);
+  color: var(--color-cream);
+  border: 2px solid rgba(255, 247, 230, 0.4);
+  border-radius: 14px;
+  padding: 0.75rem 1.25rem;
+  font-weight: 700;
+}
+
+.panel {
+  background: rgba(47, 107, 58, 0.55);
+  border: 2px solid rgba(255, 247, 230, 0.25);
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.input-cute {
+  background: rgba(255, 247, 230, 0.95);
+  color: #2f6b3a;
+  border-radius: 12px;
+  padding: 0.6rem 0.9rem;
+  font-weight: 700;
+  outline: none;
+}
