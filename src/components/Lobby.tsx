@@ -1,5 +1,5 @@
 import { useState, useEffect, type ChangeEvent } from 'react'
-import { usePlayersList, myPlayer, useMultiplayerState, isHost, type PlayerState } from 'playroomkit'
+import { usePlayersList, myPlayer, useMultiplayerState, useIsHost, type PlayerState } from 'playroomkit'
 import { getStoredProfile, setStoredProfile, clearStoredProfile } from '../utils/playerStorage'
 
 // Universal lobby (Host/Join, never Desktop/Mobile). Assumes the Network Gate in
@@ -7,6 +7,7 @@ import { getStoredProfile, setStoredProfile, clearStoredProfile } from '../utils
 export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.Element {
   const players = usePlayersList(true)
   const me = myPlayer()
+  const host = useIsHost()
   const [gameStart, setGameStart] = useMultiplayerState('gameStart', false)
   const stored = getStoredProfile()
   const [name, setName] = useState<string>(stored?.name ?? '')
@@ -33,7 +34,7 @@ export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.E
   const toggleReady = (): void => me?.setState('ready', !isReady, true)
 
   const start = (): void => {
-    if (!isHost()) return
+    if (!host) return
     setGameStart(true)
   }
 
@@ -60,13 +61,14 @@ export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.E
     )
   }
 
-  const canStart = isHost() && players.length > 0 && players.every((p: PlayerState) => (p.getState('ready') as boolean))
+  // A solo host can start immediately once ready; with others, everyone must be ready.
+  const canStart = host && players.length > 0 && (players.length === 1 || players.every((p: PlayerState) => (p.getState('ready') as boolean)))
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center p-4">
       <div className="panel p-5 w-full max-w-md">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-2xl font-extrabold">{isHost() ? '👑 HOST' : '⚡ GUEST'}</h2>
+          <h2 className="text-2xl font-extrabold">{host ? '👑 HOST' : '⚡ GUEST'}</h2>
           <span className="font-mono text-sm opacity-70">{players.length} online</span>
         </div>
         <div className="space-y-2 mb-4">
@@ -83,7 +85,7 @@ export default function Lobby({ onStart }: { onStart: () => void }): React.JSX.E
           {isReady ? 'CANCEL READY' : 'READY'}
         </button>
         <button className="btn-primary w-full" disabled={!canStart} onClick={start}>
-          {isHost() ? (canStart ? 'START' : 'WAITING…') : 'WAIT FOR HOST'}
+          {host ? (canStart ? 'START' : 'WAITING…') : 'WAIT FOR HOST'}
         </button>
         <button className="mt-2 w-full text-sm opacity-60" onClick={leave}>
           leave

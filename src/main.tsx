@@ -9,7 +9,10 @@ async function bootstrap(): Promise<void> {
   const isDev = new URLSearchParams(location.search).has('dev')
   if (!isDev) {
     try {
-      await insertCoin({ skipLobby: true, streamMode: true })
+      // skipLobby: our React Lobby replaces Playroom's pre-game UI.
+      // NOTE: do NOT pass streamMode — it makes the client a stream viewer,
+      // which breaks isHost() and the host-start flow.
+      await insertCoin({ skipLobby: true })
       let tries = 0
       while (!myPlayer()?.id && tries < 100) {
         await new Promise((r) => setTimeout(r, 100))
