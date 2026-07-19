@@ -21,8 +21,9 @@
 - **Phase 1: COMPLETE** ✅ — Core simulation + headless harness (movement, collision, gathering, loot, mobs, leveling, crafting).
 - **Phase 2–4: COMPLETE** ✅ — Core content loop: mob tiers (rabbit/boar), berry bushes + eat-to-heal, boar contact combat, HP/XP survival, richer recipes, harness + unit-test coverage.
 - **Phase 5: COMPLETE** ✅ — Phaser world render (tiles, entities, camera follow) + WASD/mouse controls + HUD. Cute placeholder art (Kenney packs land later).
-- **Phase 6: NEXT** 🔜 — Mobile controls (left virtual joystick + right action buttons).
-- **Phase 7: NEXT** 🔜 — Multiplayer netcode in `src/net/playroomAdapter.ts` (host-authoritative snapshot broadcast + intent send + interpolation) + 2-context Playwright sync tests.
+- **Phase 6: COMPLETE** ✅ — Universal on-screen controls (`MobileControls.tsx`): left virtual joystick + right action/eat buttons. Pointer-based, works for touch AND mouse.
+- **Phase 7: COMPLETE** ✅ — Multiplayer netcode: host-authoritative `World` steps with all players' intents; snapshot broadcast via `setState('snapshot')`; clients send intents via `myPlayer().setState('intent')` and interpolate the mirror `World` from snapshots (terrain matches via shared seed). Codec in `src/net/playroomAdapter.ts`; scene net-mode in `src/client/game.tsx` (`GameNet`). 2-context Playwright e2e + codec unit tests.
+- **Phase 8: NEXT** 🔜 — Polish + deploy to Vercel (`vercel --prod`). Kenney art pass; recipe/structure expansion.
 
 ---
 
@@ -114,7 +115,10 @@ Unit tests: `npm test` (vitest over `src/core`).
 | `src/headless/bots.ts` | Scripted gatherer bot |
 | `src/main.tsx` | Network Gate bootstrapper |
 | `src/components/Lobby.tsx` | Universal lobby |
-| `src/client/game.ts` | Phaser canvas (Phase 5 world) |
-| `src/net/playroomAdapter.ts` | Snapshot/intent sync (Phase 7) |
+| `src/client/game.tsx` | Phaser canvas + `GameLocal`/`GameNet` (world render + input) |
+| `src/client/input.ts` | Shared `InputState` (joystick/buttons → scene) |
+| `src/components/MobileControls.tsx` | Universal on-screen joystick + action/eat buttons |
+| `src/net/playroomAdapter.ts` | Snapshot/intent codec (host-authoritative sync) |
+| `tests/multiplayer.spec.ts` | 2-context Playwright e2e |
 
 *Last Updated: 2026-07-19 — Phase 0 complete, Phase 1 in progress.*
