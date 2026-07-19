@@ -35,13 +35,13 @@ function nearest(
  * A scripted "survivor" bot. Same intent interface a human/remote player uses,
  * so it exercises the exact same simulation code paths. Strategy (phased):
  *   1. Craft tools as soon as affordable (axe -> pick -> sword).
- *   2. While under-armed, gather a balanced mix of wood + stone so all tools
- *      can be crafted (mining rocks does NOT require an existing pick).
+ *   2. While under-armed, gather a balanced mix of wood + stone + berries so all
+ *      tools can be crafted (mining rocks does NOT require an existing pick).
  *   3. Once armed, commit to hunting the nearest animal: lock onto one target,
  *      keep moving into it while attacking so fleeing prey can't escape.
+ *   4. Eat berries to recover HP whenever wounded.
  */
 export function makeGatherBot(playerId: string): (world: World, tick: number) => IntentMap {
-  // Closure state: the animal the bot is currently committed to hunting.
   let huntTargetId: string | null = null
 
   return (world) => {
@@ -55,13 +55,38 @@ export function makeGatherBot(playerId: string): (world: World, tick: number) =>
     if (countItem(player, 'sword') === 0 && hasItems(player, RECIPES[2].cost)) craft(world, player, 'iron_sword')
 
     const intent: Intent = { move: { x: 0, y: 0 }, action: null, aim: null, craftId: null }
+
+    // 4. Recover HP when wounded and we have food — but only when no mob is
+    //    close enough to interrupt the meal.
+    const dangerNear = nearest(world, player.pos, ['animal'], 56)
+    if (
+      !dangerNear &&
+      (player.hp ?? 0) < (player.maxHp ?? 100) * 0.55 &&
+      countItem(player, 'berry') > 0
+    ) {
+      intent.action = 'eat'
+      intents.set(playerId, intent)
+      return intents
+    }
+
     const armed = (player.power ?? 0) >= 25 // has the sword
 
-    // 3. Hunt: commit to one animal once we have a weapon.
+    // 3. Hunt: commit to one animal once we have a weapon. Seek boars first
+    //    (more XP + they fight back), then any nearby animal.
     if (armed) {
       let target = huntTargetId ? world.entities.get(huntTargetId) : null
       if (!target || target.kind !== 'animal') {
-        target = nearest(world, player.pos, ['animal'], 220)
+        const boars = [...world.entities.values()].filter((e) => e.kind === 'animal' && e.tier === 'boar')
+        let bestBoar: Entity | null = null
+        let bestD = Infinity
+        for (const b of boars) {
+          const d = dist(player.pos, b.pos)
+          if (d < bestD) {
+            bestBoar = b
+            bestD = d
+          }
+        }
+        target = bestBoar ?? nearest(world, player.pos, ['animal'], 260)
         huntTargetId = target ? target.id : null
       }
       if (target) {
@@ -76,12 +101,18 @@ export function makeGatherBot(playerId: string): (world: World, tick: number) =>
       huntTargetId = null
     }
 
-    // 2. Gather: pick the nearest tree OR rock so we can afford every tool.
+    // 2. Gather: pick the nearest tree / rock / berry so we can afford every tool.
     const tree = nearest(world, player.pos, ['tree'])
     const rock = nearest(world, player.pos, ['rock'])
+    const berry = nearest(world, player.pos, ['berry'])
     const dTree = tree ? dist(player.pos, tree.pos) : Infinity
     const dRock = rock ? dist(player.pos, rock.pos) : Infinity
-    const target = dTree <= dRock ? tree : rock
+    const dBerry = berry ? dist(player.pos, berry.pos) : Infinity
+    let target: Entity | null = null
+    let bestD = Math.min(dTree, dRock, dBerry)
+    if (bestD === dTree) target = tree
+    else if (bestD === dRock) target = rock
+    else target = berry
     if (!target) {
       intents.set(playerId, intent)
       return intents
@@ -92,7 +123,7 @@ export function makeGatherBot(playerId: string): (world: World, tick: number) =>
     intent.move = norm(toTarget)
     const reach = player.radius + 14 + target.radius
     if (dist(player.pos, target.pos) <= reach) {
-      intent.action = target.kind === 'tree' ? 'chop' : 'mine'
+      intent.action = target.kind === 'tree' ? 'chop' : target.kind === 'rock' ? 'mine' : 'forage'
     }
     intents.set(playerId, intent)
     return intents

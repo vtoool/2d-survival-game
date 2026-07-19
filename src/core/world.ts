@@ -1,7 +1,7 @@
 import type { Entity, EntityKind, IntentMap, LootEntry, Vec2, WorldItem } from './types'
 import { createRng, type Rng } from './rng'
 import { createLogger, type SimLogger } from './log'
-import { ANIMAL, PLAYER, RESOURCE, TILE } from './config'
+import { ANIMAL, type AnimalTier, PLAYER, RESOURCE, TILE } from './config'
 import { applyIntent } from './interaction'
 import { updateAnimal } from './ai'
 import { addItem } from './player'
@@ -81,7 +81,7 @@ export class World {
     return e
   }
 
-  spawnResource(kind: 'tree' | 'rock', pos: Vec2, id?: string): Entity {
+  spawnResource(kind: 'tree' | 'rock' | 'berry', pos: Vec2, id?: string): Entity {
     const def = RESOURCE[kind]
     const e: Entity = {
       id: id ?? this.nextId(kind),
@@ -100,24 +100,28 @@ export class World {
     return e
   }
 
-  spawnAnimal(pos: Vec2, id?: string): Entity {
+  spawnAnimal(pos: Vec2, tier: AnimalTier = 'rabbit', id?: string): Entity {
+    const def = ANIMAL[tier]
     const e: Entity = {
       id: id ?? this.nextId('animal'),
       kind: 'animal',
       pos: { ...pos },
       vel: { x: 0, y: 0 },
-      radius: ANIMAL.radius,
-      hp: ANIMAL.maxHp,
-      maxHp: ANIMAL.maxHp,
+      radius: def.radius,
+      hp: def.maxHp,
+      maxHp: def.maxHp,
       solid: false,
       ai: 'wander',
       heading: this.rng.range(0, Math.PI * 2),
       aiTimer: 0,
-      lootTable: ANIMAL.loot as LootEntry[],
-      xp: ANIMAL.xp,
+      attackCooldown: 0,
+      tier,
+      lootTable: def.loot as LootEntry[],
+      xp: def.xp,
+      contactDamage: def.contactDamage,
     }
     this.entities.set(e.id, e)
-    this.logger.log({ t: this.time, type: 'spawn', data: { id: e.id, kind: 'animal', pos } })
+    this.logger.log({ t: this.time, type: 'spawn', data: { id: e.id, kind: 'animal', tier, pos } })
     return e
   }
 

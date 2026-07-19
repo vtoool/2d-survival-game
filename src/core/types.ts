@@ -5,7 +5,7 @@ export interface Vec2 {
   y: number
 }
 
-export type ActionType = 'chop' | 'mine' | 'attack' | 'interact' | 'craft'
+export type ActionType = 'chop' | 'mine' | 'forage' | 'attack' | 'eat' | 'interact' | 'craft'
 
 /** A player's desired action for a single tick. Same shape for human, bot, and remote player. */
 export interface Intent {
@@ -19,7 +19,7 @@ export interface Intent {
   craftId: string | null
 }
 
-export type EntityKind = 'player' | 'tree' | 'rock' | 'animal' | 'item'
+export type EntityKind = 'player' | 'tree' | 'rock' | 'berry' | 'animal' | 'item'
 
 export interface LootEntry {
   item: string
@@ -56,11 +56,15 @@ export interface Entity {
   harvestAction?: ActionType
 
   // Animal
-  ai?: 'wander' | 'flee'
+  ai?: 'wander' | 'flee' | 'charge'
+  /** Mob archetype (rabbit/boar) controlling behaviour + stats. */
+  tier?: 'rabbit' | 'boar'
   /** Current wander heading in radians. */
   heading?: number
-  /** Seconds until the next AI decision. */
+  /** Seconds until the next AI decision (and boar contact-attack cooldown). */
   aiTimer?: number
+  /** Damage dealt to a player on contact (boars). */
+  contactDamage?: number
 
   // World item
   worldItem?: WorldItem
@@ -86,6 +90,8 @@ export type SimEventType =
   | 'pickup'
   | 'attack'
   | 'kill'
+  | 'hit'
+  | 'eat'
   | 'levelup'
   | 'craft'
   | 'craft_fail'

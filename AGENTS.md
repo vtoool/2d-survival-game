@@ -18,7 +18,11 @@
 ## 📊 Current Status
 
 - **Phase 0: COMPLETE** ✅ — Repo, toolchain, docs, opencode subagents/skills, PlayroomKit lobby shell.
-- **Phase 1: IN PROGRESS** 🔧 — Core simulation + headless harness (movement, collision, gathering, loot, mobs, leveling, crafting stubs).
+- **Phase 1: COMPLETE** ✅ — Core simulation + headless harness (movement, collision, gathering, loot, mobs, leveling, crafting).
+- **Phase 2–4: COMPLETE** ✅ — Core content loop: mob tiers (rabbit/boar), berry bushes + eat-to-heal, boar contact combat, HP/XP survival, richer recipes, harness + unit-test coverage.
+- **Phase 5: COMPLETE** ✅ — Phaser world render (tiles, entities, camera follow) + WASD/mouse controls + HUD. Cute placeholder art (Kenney packs land later).
+- **Phase 6: NEXT** 🔜 — Mobile controls (left virtual joystick + right action buttons).
+- **Phase 7: NEXT** 🔜 — Multiplayer netcode in `src/net/playroomAdapter.ts` (host-authoritative snapshot broadcast + intent send + interpolation) + 2-context Playwright sync tests.
 
 ---
 

@@ -12,15 +12,19 @@ const report = runHarness({
 
 // Simple pass/fail sanity checks surfaced as an exit code for CI.
 // The default scenario must demonstrate the full core loop end-to-end:
-//   gather wood + stone -> craft tools -> hunt -> kill -> gain XP/level.
+//   gather wood + stone + berries -> craft tools -> hunt (boars/rabbits)
+//   -> take damage -> eat to recover -> kill -> gain XP/level.
+const kills = report.eventCounts['kill'] ?? 0
+const hit = report.eventCounts['hit'] ?? 0
 const ok =
   report.player.inventory.length > 0 &&
-  (report.eventCounts['kill'] ?? 0) >= 1 &&
-  (report.player.xp > 0 || report.player.level > 1)
+  kills >= 1 &&
+  (report.player.xp > 0 || report.player.level > 1) &&
+  hit >= 1 // boar combat path exercised (eat/recovery covered by unit tests)
 
 if (!ok) {
   console.error(
-    `SIM FAILED assertions: kills=${report.eventCounts['kill'] ?? 0} xp=${report.player.xp} level=${report.player.level}`
+    `SIM FAILED assertions: kills=${kills} xp=${report.player.xp} level=${report.player.level} hit=${hit}`
   )
 }
 process.exitCode = ok ? 0 : 1

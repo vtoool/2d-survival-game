@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { World, createLogger, TILE, type Intent, type IntentMap } from '../index'
+import { World, createLogger, TILE, addItem, type Intent, type IntentMap } from '../index'
 
 function idle(): Intent {
   return { move: { x: 0, y: 0 }, action: null, aim: null, craftId: null }
@@ -55,8 +55,43 @@ describe('core simulation', () => {
     expect((p.xp ?? 0) > 0).toBe(true)
   })
 
-  it('is deterministic for a fixed seed and scripted intents', () => {
-    const run = (): { x: number; y: number } => {
+  it('eating a berry restores hp', () => {
+    const logger = createLogger()
+    const w = new World({ width: 20, height: 20, seed: 5, logger })
+    const p = w.spawnPlayer({ x: 100, y: 100 })
+    addItem(p, 'berry', 2)
+    p.hp = 40
+    const eat: Intent = intent({ action: 'eat' })
+    for (let i = 0; i < 30; i++) w.step(1 / 30, new Map([[p.id, eat]]))
+    const events = logger.drain()
+    expect(events.some((e) => e.type === 'eat')).toBe(true)
+    expect(p.hp).toBeGreaterThan(40)
+  })
+
+  it('a boar deals contact damage to a nearby player', () => {
+    const logger = createLogger()
+    const w = new World({ width: 20, height: 20, seed: 6, logger })
+    w.spawnAnimal({ x: 100, y: 110 }, 'boar')
+    const p = w.spawnPlayer({ x: 100, y: 100 })
+    const idleHere: Intent = intent({})
+    for (let i = 0; i < 60; i++) w.step(1 / 30, new Map([[p.id, idleHere]]))
+    const events = logger.drain()
+    expect(events.some((e) => e.type === 'hit')).toBe(true)
+    expect(p.hp).toBeLessThan(p.maxHp)
+  })
+
+  it('foraging a berry bush yields berries', () => {
+    const logger = createLogger()
+    const w = new World({ width: 20, height: 20, seed: 7, logger })
+    const bush = w.spawnResource('berry', { x: 100, y: 100 })
+    const p = w.spawnPlayer({ x: 100, y: 118 })
+    const forage: Intent = intent({ action: 'forage', aim: { x: 100, y: 100 } })
+    for (let i = 0; i < 60; i++) w.step(1 / 30, new Map([[p.id, forage]]))
+    expect(w.entities.has(bush.id)).toBe(false)
+    expect((p.inventory?.find((s) => s.item === 'berry')?.count ?? 0) > 0).toBe(true)
+  })
+
+  it('is deterministic for a fixed seed and scripted intents', () => {    const run = (): { x: number; y: number } => {
       const w = new World({ width: 24, height: 24, seed: 42 })
       const p = w.spawnPlayer({ x: 12 * TILE, y: 12 * TILE })
       const seq: IntentMap[] = []

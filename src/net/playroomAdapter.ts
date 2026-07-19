@@ -13,7 +13,7 @@ export interface EntitySnapshot {
   hp: number
 }
 
-const KIND_CODE: Record<EntityKind, number> = { player: 0, tree: 1, rock: 2, animal: 3, item: 4 }
+const KIND_CODE: Record<EntityKind, number> = { player: 0, tree: 1, rock: 2, berry: 5, animal: 3, item: 4 }
 
 /** Serialize the world into a compact, transport-friendly snapshot. */
 export function snapshot(world: World): EntitySnapshot[] {
@@ -25,5 +25,5 @@ export function snapshot(world: World): EntitySnapshot[] {
 }
 
 export function kindFromCode(code: number): EntityKind {
-  return (['player', 'tree', 'rock', 'animal', 'item'] as EntityKind[])[code] ?? 'item'
+  return (['player', 'tree', 'rock', 'animal', 'item', 'berry'] as EntityKind[])[code] ?? 'item'
 }

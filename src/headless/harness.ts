@@ -11,7 +11,9 @@ export interface HarnessOptions {
   dt?: number
   trees?: number
   rocks?: number
-  animals?: number
+  berryBushes?: number
+  rabbits?: number
+  boars?: number
   /** Optional path to write JSON-line event log. */
   logFile?: string
   /** Silent mode: skip console summary. */
@@ -24,10 +26,11 @@ export interface HarnessReport {
   eventCount: number
   player: { pos: Vec2; level: number; xp: number; hp: number; inventory: ItemStack[] }
   remaining: Record<EntityKind, number>
+  species: { rabbits: number; boars: number }
   eventCounts: Record<string, number>
 }
 
-function scatter(world: World, kind: 'tree' | 'rock' | 'animal', n: number): void {
+function scatter(world: World, kind: 'tree' | 'rock' | 'berry' | 'rabbit' | 'boar', n: number): void {
   let placed = 0
   let attempts = 0
   while (placed < n && attempts < n * 60) {
@@ -38,7 +41,9 @@ function scatter(world: World, kind: 'tree' | 'rock' | 'animal', n: number): voi
     const pos = { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 }
     if (kind === 'tree') world.spawnResource('tree', pos)
     else if (kind === 'rock') world.spawnResource('rock', pos)
-    else world.spawnAnimal(pos)
+    else if (kind === 'berry') world.spawnResource('berry', pos)
+    else if (kind === 'rabbit') world.spawnAnimal(pos, 'rabbit')
+    else world.spawnAnimal(pos, 'boar')
     placed++
   }
 }
@@ -55,7 +60,9 @@ export function runHarness(opts: HarnessOptions = {}): HarnessReport {
 
   scatter(world, 'tree', opts.trees ?? 14)
   scatter(world, 'rock', opts.rocks ?? 8)
-  scatter(world, 'animal', opts.animals ?? 5)
+  scatter(world, 'berry', opts.berryBushes ?? 6)
+  scatter(world, 'rabbit', opts.rabbits ?? 4)
+  scatter(world, 'boar', opts.boars ?? 2)
   world.spawnPlayer({ x: (width * TILE) / 2, y: (height * TILE) / 2 }, 'hero')
 
   const bot = makeGatherBot('hero')
@@ -74,8 +81,16 @@ export function runHarness(opts: HarnessOptions = {}): HarnessReport {
     player: world.count('player'),
     tree: world.count('tree'),
     rock: world.count('rock'),
+    berry: world.count('berry'),
     animal: world.count('animal'),
     item: world.count('item'),
+  }
+  let rabbits = 0
+  let boars = 0
+  for (const e of world.entities.values()) {
+    if (e.kind !== 'animal') continue
+    if (e.tier === 'boar') boars++
+    else rabbits++
   }
   const eventCounts: Record<string, number> = {}
   for (const e of events) eventCounts[e.type] = (eventCounts[e.type] ?? 0) + 1
@@ -92,6 +107,7 @@ export function runHarness(opts: HarnessOptions = {}): HarnessReport {
       inventory: player.inventory ?? [],
     },
     remaining,
+    species: { rabbits, boars },
     eventCounts,
   }
 

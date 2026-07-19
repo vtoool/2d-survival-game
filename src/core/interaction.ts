@@ -22,11 +22,25 @@ export function applyIntent(world: World, player: Entity, intent: Intent, dt: nu
 }
 
 function performAction(world: World, player: Entity, intent: Intent): void {
+  const power = player.power ?? PLAYER.basePower
+
+  // Eating consumes a berry from inventory to restore HP — no target needed.
+  if (intent.action === 'eat') {
+    if ((player.hp ?? 0) >= (player.maxHp ?? PLAYER.maxHp)) return
+    const stack = player.inventory?.find((s) => s.item === 'berry')
+    if (!stack || stack.count <= 0) return
+    stack.count -= 1
+    player.inventory = player.inventory?.filter((s) => s.count > 0)
+    player.hp = Math.min(player.maxHp ?? PLAYER.maxHp, (player.hp ?? 0) + PLAYER.berryHeal)
+    world.logger.log({ t: world.time, type: 'eat', data: { by: player.id, heal: PLAYER.berryHeal, hp: player.hp } })
+    return
+  }
+
   const reach = player.radius + PLAYER.reach
   let best: Entity | null = null
   let bestDist = Infinity
   for (const e of world.entities.values()) {
-    if (e.kind !== 'tree' && e.kind !== 'rock' && e.kind !== 'animal') continue
+    if (e.kind !== 'tree' && e.kind !== 'rock' && e.kind !== 'animal' && e.kind !== 'berry') continue
     const d = Math.hypot(e.pos.x - player.pos.x, e.pos.y - player.pos.y)
     if (d <= reach + e.radius && d < bestDist) {
       best = e
@@ -35,8 +49,6 @@ function performAction(world: World, player: Entity, intent: Intent): void {
   }
   if (!best) return
 
-  const power = player.power ?? PLAYER.basePower
-
   if (intent.action === 'attack' && best.kind === 'animal') {
     best.hp -= power
     world.logger.log({ t: world.time, type: 'attack', data: { by: player.id, target: best.id, dmg: power, hp: Math.max(0, best.hp) } })
@@ -44,8 +56,9 @@ function performAction(world: World, player: Entity, intent: Intent): void {
     return
   }
 
-  if ((intent.action === 'chop' && best.kind === 'tree') || (intent.action === 'mine' && best.kind === 'rock')) {
-    if (best.harvestAction !== intent.action) return // wrong tool for this resource
+  const harvestAction = intent.action === 'chop' || intent.action === 'mine' || intent.action === 'forage'
+  if (harvestAction && best.kind !== 'animal') {
+    if (best.harvestAction !== intent.action) return // wrong action for this resource
     best.hp -= power
     world.logger.log({ t: world.time, type: 'harvest', data: { by: player.id, target: best.id, kind: best.kind, dmg: power, hp: Math.max(0, best.hp) } })
     if (best.hp <= 0) destroyResource(world, best)

@@ -1,15 +1,18 @@
 import type { Entity } from './types'
 import type { World } from './world'
-import { ANIMAL } from './config'
+import { ANIMAL, type AnimalTier } from './config'
 import { moveEntity } from './movement'
 
 const TAU = Math.PI * 2
 
-/** Simple animal AI: wander when calm, flee from nearby players. */
+/** Simple animal AI: wander when calm; flee (rabbits) or charge (boars) near players. */
 export function updateAnimal(world: World, a: Entity, dt: number): void {
-  a.aiTimer = (a.aiTimer ?? 0) - dt
+  const def = ANIMAL[(a.tier ?? 'rabbit') as AnimalTier]
 
-  // Find nearest player within flee radius.
+  a.aiTimer = (a.aiTimer ?? 0) - dt
+  a.attackCooldown = Math.max(0, (a.attackCooldown ?? 0) - dt)
+
+  // Find nearest player within aggro radius.
   let threat: Entity | null = null
   let threatDist = Infinity
   for (const e of world.entities.values()) {
@@ -21,23 +24,49 @@ export function updateAnimal(world: World, a: Entity, dt: number): void {
     }
   }
 
-  let speed = ANIMAL.speed
-  if (threat && threatDist < ANIMAL.fleeRadius) {
-    a.ai = 'flee'
-    speed = ANIMAL.fleeSpeed
-    // Heading directly away from the threat.
-    const ang = Math.atan2(a.pos.y - threat.pos.y, a.pos.x - threat.pos.x)
-    a.heading = ang
+  let speed = def.speed
+  let heading = a.heading ?? 0
+
+  if (threat && threatDist < def.aggroRadius) {
+    const ang = Math.atan2(threat.pos.y - a.pos.y, threat.pos.x - a.pos.x)
+    if (def.behaviour === 'flee') {
+      a.ai = 'flee'
+      speed = def.alarmSpeed
+      a.heading = ang + Math.PI // run directly away
+    } else {
+      a.ai = 'charge'
+      speed = def.alarmSpeed // charge speed (>= wander)
+      a.heading = ang // run at the player
+      maybeBite(world, a, threat)
+    }
   } else {
     a.ai = 'wander'
     if ((a.aiTimer ?? 0) <= 0) {
       a.heading = world.rng.range(0, TAU)
-      a.aiTimer = ANIMAL.wanderRetarget
+      a.aiTimer = 2.5
     }
   }
 
-  const h = a.heading ?? 0
-  a.vel.x = Math.cos(h) * speed
-  a.vel.y = Math.sin(h) * speed
+  heading = a.heading ?? 0
+  a.vel.x = Math.cos(heading) * speed
+  a.vel.y = Math.sin(heading) * speed
   moveEntity(world, a, dt)
+
+  // Boars deal contact damage when overlapping a player even without a charge hit.
+  if (def.contactDamage > 0 && threat) {
+    const overlap = threat.radius + a.radius
+    if (Math.hypot(threat.pos.x - a.pos.x, threat.pos.y - a.pos.y) <= overlap) {
+      maybeBite(world, a, threat)
+    }
+  }
+}
+
+/** Apply the boar's contact attack to a player, respecting its cooldown. */
+function maybeBite(world: World, boar: Entity, player: Entity): void {
+  if ((boar.attackCooldown ?? 0) > 0) return
+  const dmg = boar.contactDamage ?? 0
+  if (dmg <= 0) return
+  player.hp = Math.max(0, player.hp - dmg)
+  boar.attackCooldown = 1
+  world.logger.log({ t: world.time, type: 'hit', data: { by: boar.id, target: player.id, dmg } })
 }

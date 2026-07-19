@@ -13,6 +13,8 @@ export const PLAYER = {
   /** Reach beyond the player radius when interacting. */
   reach: 14,
   pickupRadius: 24,
+  /** HP restored per berry eaten. */
+  berryHeal: 22,
 }
 
 export const XP = {
@@ -25,15 +27,44 @@ export const XP = {
 export const RESOURCE = {
   tree: { hp: 40, radius: 14, harvestAction: 'chop' as const, loot: [{ item: 'wood', min: 2, max: 4 }] },
   rock: { hp: 70, radius: 16, harvestAction: 'mine' as const, loot: [{ item: 'stone', min: 2, max: 3 }] },
+  berry: { hp: 12, radius: 12, harvestAction: 'forage' as const, loot: [{ item: 'berry', min: 1, max: 3 }] },
 }
 
-export const ANIMAL = {
-  radius: 11,
-  maxHp: 30,
-  speed: 70,
-  wanderRetarget: 2.5,
-  fleeSpeed: 110,
-  fleeRadius: 90,
-  xp: 12,
-  loot: [{ item: 'meat', min: 1, max: 2 }],
+export type AnimalTier = 'rabbit' | 'boar'
+
+export const ANIMAL: Record<AnimalTier, {
+  radius: number
+  maxHp: number
+  speed: number
+  /** Behaviour when a player is near: rabbits flee, boars charge. */
+  behaviour: 'flee' | 'charge'
+  /** Speed while alarmed: flee speed (rabbits) or charge speed (boars). */
+  alarmSpeed: number
+  aggroRadius: number
+  xp: number
+  contactDamage: number
+  loot: { item: string; min: number; max: number }[]
+}> = {
+  rabbit: {
+    radius: 9,
+    maxHp: 12,
+    speed: 95,
+    behaviour: 'flee',
+    alarmSpeed: 105,
+    aggroRadius: 110,
+    xp: 8,
+    contactDamage: 0,
+    loot: [{ item: 'meat', min: 1, max: 1 }],
+  },
+  boar: {
+    radius: 14,
+    maxHp: 55,
+    speed: 55,
+    behaviour: 'charge',
+    alarmSpeed: 115,
+    aggroRadius: 160,
+    xp: 25,
+    contactDamage: 7,
+    loot: [{ item: 'meat', min: 2, max: 3 }],
+  },
 }
