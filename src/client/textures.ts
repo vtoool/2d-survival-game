@@ -41,10 +41,10 @@ export function kenneyTextureFor(e: Entity): string | null {
       return e.tier === 'boar' ? 'kenney_boar' : 'kenney_rabbit'
     case 'tree':
       return 'kenney_tree'
-    case 'rock':
-      return 'kenney_rock'
     case 'berry':
       return 'kenney_berry'
+    // Rock uses a code-drawn stone (see prim_rock) — the generic foliage
+    // silhouettes read as plants, not rock.
     default:
       return null
   }
@@ -104,11 +104,13 @@ export function createPrimitiveTextures(scene: Phaser.Scene): void {
     g.fillStyle(0x3f9d4f, 1)
     g.fillCircle(15, 16, 14)
   })
-  make('prim_rock', 32, 28, (g) => {
+  make('prim_rock', 34, 28, (g) => {
+    g.fillStyle(0x6f767d, 1)
+    g.fillEllipse(17, 19, 30, 18)
     g.fillStyle(0x9aa0a6, 1)
-    g.fillCircle(16, 14, 13)
+    g.fillEllipse(17, 15, 28, 20)
     g.fillStyle(0xb6bcc2, 1)
-    g.fillCircle(12, 11, 5)
+    g.fillEllipse(13, 12, 12, 8)
   })
   make('prim_berry', 28, 26, (g) => {
     g.fillStyle(0x4caf50, 1)

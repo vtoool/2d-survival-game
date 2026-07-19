@@ -7,6 +7,10 @@ export interface InputState {
   moveX: number
   moveY: number
   joyActive: boolean
+  /** Right joystick aim vector (where the character looks / aims), each in [-1, 1]. */
+  aimX: number
+  aimY: number
+  aimActive: boolean
   /** Right-side action button held (contextual chop/mine/forage/attack). */
   actionHeld: boolean
   /** Right-side eat button held. */
@@ -14,5 +18,14 @@ export interface InputState {
 }
 
 export function createInputState(): InputState {
-  return { moveX: 0, moveY: 0, joyActive: false, actionHeld: false, eatHeld: false }
+  return {
+    moveX: 0,
+    moveY: 0,
+    joyActive: false,
+    aimX: 0,
+    aimY: 0,
+    aimActive: false,
+    actionHeld: false,
+    eatHeld: false,
+  }
 }

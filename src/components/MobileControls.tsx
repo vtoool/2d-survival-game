@@ -1,91 +1,122 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { InputState } from '../client/input'
 
-// Universal on-screen controls: a left virtual joystick for movement and two
-// right-side action buttons (contextual attack/harvest + eat). Pointer events
-// mean they work for touch AND mouse. They write into the shared `input` ref
-// that the Phaser scene reads each frame.
+// Universal on-screen controls:
+//   - left virtual joystick  → movement
+//   - right virtual joystick → aim / where the character looks
+//   - right action buttons   → contextual harvest/attack + eat
+// Pointer events mean they work for touch AND mouse. They write into the shared
+// `input` ref that the Phaser scene reads each frame.
 
 const JOY_RADIUS = 64
+const AIM_RADIUS = 56
 
-export default function MobileControls({ input }: { input: React.MutableRefObject<InputState> }): React.JSX.Element {
+function Joystick({
+  onChange,
+  style,
+  radius,
+}: {
+  onChange: (x: number, y: number, active: boolean) => void
+  style: CSSProperties
+  radius: number
+}): React.JSX.Element {
   const baseRef = useRef<HTMLDivElement>(null)
-  const origin = useRef<{ x: number; y: number } | null>(null)
   const knobRef = useRef<HTMLDivElement>(null)
+  const origin = useRef<{ x: number; y: number } | null>(null)
 
-  const setJoy = (x: number, y: number): void => {
-    input.current.moveX = x
-    input.current.moveY = y
-    input.current.joyActive = x !== 0 || y !== 0
-    if (knobRef.current && origin.current) {
-      knobRef.current.style.transform = `translate(${x * JOY_RADIUS}px, ${y * JOY_RADIUS}px)`
-    }
+  const set = (x: number, y: number): void => {
+    onChange(x, y, x !== 0 || y !== 0)
+    if (knobRef.current) knobRef.current.style.transform = `translate(${x * radius}px, ${y * radius}px)`
   }
 
-  const onJoyDown = (e: ReactPointerEvent<HTMLDivElement>): void => {
-    const rect = baseRef.current!.getBoundingClientRect()
-    origin.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    onJoyMove(e)
-  }
-
-  const onJoyMove = (e: ReactPointerEvent<HTMLDivElement>): void => {
+  const move = (e: ReactPointerEvent<HTMLDivElement>): void => {
     if (!origin.current) return
     let dx = e.clientX - origin.current.x
     let dy = e.clientY - origin.current.y
     const len = Math.hypot(dx, dy)
-    if (len > JOY_RADIUS) {
-      dx = (dx / len) * JOY_RADIUS
-      dy = (dy / len) * JOY_RADIUS
+    if (len > radius) {
+      dx = (dx / len) * radius
+      dy = (dy / len) * radius
     }
-    setJoy(dx / JOY_RADIUS, dy / JOY_RADIUS)
+    set(dx / radius, dy / radius)
   }
 
-  const onJoyUp = (): void => {
+  const down = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    const rect = baseRef.current!.getBoundingClientRect()
+    origin.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    move(e)
+  }
+
+  const up = (): void => {
     origin.current = null
-    setJoy(0, 0)
+    set(0, 0)
   }
 
   return (
-    <>
-      {/* Left: virtual joystick */}
+    <div
+      ref={baseRef}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+      style={{
+        position: 'absolute',
+        width: radius * 2,
+        height: radius * 2,
+        borderRadius: '50%',
+        background: 'rgba(255,247,230,0.18)',
+        border: '3px solid rgba(255,247,230,0.4)',
+        touchAction: 'none',
+        ...style,
+      }}
+    >
       <div
-        ref={baseRef}
-        onPointerDown={onJoyDown}
-        onPointerMove={onJoyMove}
-        onPointerUp={onJoyUp}
-        onPointerCancel={onJoyUp}
+        ref={knobRef}
         style={{
           position: 'absolute',
-          left: 24,
-          bottom: 24,
-          width: JOY_RADIUS * 2,
-          height: JOY_RADIUS * 2,
+          left: '50%',
+          top: '50%',
+          width: 52,
+          height: 52,
+          marginLeft: -26,
+          marginTop: -26,
           borderRadius: '50%',
-          background: 'rgba(255,247,230,0.18)',
-          border: '3px solid rgba(255,247,230,0.4)',
-          touchAction: 'none',
+          background: 'rgba(255,247,230,0.85)',
+          boxShadow: '0 3px 0 rgba(0,0,0,0.2)',
         }}
-      >
-        <div
-          ref={knobRef}
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            width: 52,
-            height: 52,
-            marginLeft: -26,
-            marginTop: -26,
-            borderRadius: '50%',
-            background: 'rgba(255,247,230,0.85)',
-            boxShadow: '0 3px 0 rgba(0,0,0,0.2)',
-          }}
-        />
-      </div>
+      />
+    </div>
+  )
+}
+
+export default function MobileControls({ input }: { input: React.MutableRefObject<InputState> }): React.JSX.Element {
+  return (
+    <>
+      {/* Left: movement joystick */}
+      <Joystick
+        radius={JOY_RADIUS}
+        style={{ left: 24, bottom: 24 }}
+        onChange={(x, y, a) => {
+          input.current.moveX = x
+          input.current.moveY = y
+          input.current.joyActive = a
+        }}
+      />
+
+      {/* Right: aim joystick */}
+      <Joystick
+        radius={AIM_RADIUS}
+        style={{ right: 150, bottom: 30 }}
+        onChange={(x, y, a) => {
+          input.current.aimX = x
+          input.current.aimY = y
+          input.current.aimActive = a
+        }}
+      />
 
       {/* Right: action buttons */}
-      <div style={{ position: 'absolute', right: 24, bottom: 28, display: 'flex', gap: 14, alignItems: 'center' }}>
+      <div style={{ position: 'absolute', right: 24, bottom: 30, display: 'flex', gap: 14, alignItems: 'center' }}>
         <button
           onPointerDown={() => (input.current.eatHeld = true)}
           onPointerUp={() => (input.current.eatHeld = false)}
@@ -107,7 +138,7 @@ export default function MobileControls({ input }: { input: React.MutableRefObjec
   )
 }
 
-function btn(color: string): React.CSSProperties {
+function btn(color: string): CSSProperties {
   return {
     width: 64,
     height: 64,

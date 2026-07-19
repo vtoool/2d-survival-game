@@ -93,6 +93,7 @@ class PlayerView {
   private hand: Phaser.GameObjects.Container
   private hp: Phaser.GameObjects.Graphics
   private lastHp = Infinity
+  private lastPop = 0
 
   constructor(scene: Phaser.Scene, color: number) {
     const shadow = scene.add.ellipse(0, 10, 26, 12, 0x000000, 0.15)
@@ -126,7 +127,11 @@ class PlayerView {
     this.hp.strokePath()
 
     if (e.hp < this.lastHp - 0.01) {
-      scene.tweens.add({ targets: this.body, scale: { from: 1.3, to: 1 }, duration: 120 })
+      const now = scene.time.now
+      if (now - this.lastPop > 220 && !scene.tweens.isTweening(this.body)) {
+        this.lastPop = now
+        scene.tweens.add({ targets: this.body, scale: { from: 1.3, to: 1 }, duration: 120 })
+      }
     }
     this.lastHp = e.hp
   }
@@ -149,6 +154,7 @@ class WorldScene extends Phaser.Scene {
   private berryOverlays = new Map<string, Phaser.GameObjects.Image>()
   private players = new Map<string, PlayerView>()
   private lastHp = new Map<string, number>()
+  private lastPop = new Map<string, number>()
   private acc = 0
   private snapAcc = 0
   private targets = new Map<string, { x: number; y: number }>()
@@ -186,6 +192,7 @@ class WorldScene extends Phaser.Scene {
     // (net clients rebuild entities from snapshots; terrain already matches via seed)
 
     createPrimitiveTextures(this)
+    this.downscaleTextures()
 
     this.cameras.main.setBackgroundColor(COLORS.ground)
     this.terrainGfx = this.add.graphics().setDepth(-1000)
@@ -211,6 +218,29 @@ class WorldScene extends Phaser.Scene {
           g.fillRect(x * TILE, y * TILE, TILE, TILE)
         }
       }
+    }
+  }
+
+  /** Shrink the 1024px Kenney source textures to a phone-friendly size so the
+   *  GPU isn't holding ~25MB of texture memory. Sprites reference the same key. */
+  private downscaleTextures(): void {
+    const MAX = 256
+    for (const t of KENNEY_TEXTURES) {
+      if (!this.textures.exists(t.key)) continue
+      const src = this.textures.get(t.key).getSourceImage() as HTMLImageElement
+      if (!src || !src.width || !src.height) continue
+      const scale = Math.min(1, MAX / Math.max(src.width, src.height))
+      if (scale >= 1) continue
+      const cw = Math.max(1, Math.round(src.width * scale))
+      const ch = Math.max(1, Math.round(src.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = cw
+      canvas.height = ch
+      const ctx = canvas.getContext('2d')
+      if (!ctx) continue
+      ctx.drawImage(src, 0, 0, cw, ch)
+      this.textures.remove(t.key)
+      this.textures.addCanvas(t.key, canvas)
     }
   }
 
@@ -270,7 +300,9 @@ class WorldScene extends Phaser.Scene {
     move.y = Phaser.Math.Clamp(move.y, -1, 1)
 
     const pointer = this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
-    const aim = { x: pointer.x, y: pointer.y }
+    const aim = inp.aimActive
+      ? { x: player.pos.x + inp.aimX * 100, y: player.pos.y + inp.aimY * 100 }
+      : { x: pointer.x, y: pointer.y }
 
     let action: Intent['action'] = null
     if (this.keys.F.isDown || inp.eatHeld) action = 'eat'
@@ -344,6 +376,7 @@ class WorldScene extends Phaser.Scene {
         s.destroy()
         this.sprites.delete(id)
         this.lastHp.delete(id)
+        this.lastPop.delete(id)
       }
     }
     for (const [id, o] of this.berryOverlays) {
@@ -376,13 +409,18 @@ class WorldScene extends Phaser.Scene {
       if (d?.flipByFacing) s.setFlipX((e.facing?.x ?? 0) < 0)
       const prev = this.lastHp.get(e.id) ?? e.hp
       if (e.hp < prev - 0.01) {
-        this.tweens.add({
-          targets: s,
-          scaleX: s.scaleX * 1.18,
-          scaleY: s.scaleY * 1.18,
-          duration: 90,
-          yoyo: true,
-        })
+        const now = this.time.now
+        const last = this.lastPop.get(e.id) ?? 0
+        if (now - last > 220 && !this.tweens.isTweening(s)) {
+          this.lastPop.set(e.id, now)
+          this.tweens.add({
+            targets: s,
+            scaleX: s.scaleX * 1.18,
+            scaleY: s.scaleY * 1.18,
+            duration: 90,
+            yoyo: true,
+          })
+        }
       }
       this.lastHp.set(e.id, e.hp)
 
